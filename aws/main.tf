@@ -138,20 +138,19 @@ data "template_file" "cloud-config" {
     activation_code = "${var.velocloud_activation_code}"
   }
 }
-output "userdata" {
-  value = "${data.template_file.cloud-config.rendered}"
-}
-
 data "template_cloudinit_config" "cloudinit" {
   gzip = false
   base64_encode = false
   part {
     filename = "init.cfg"
-    content_type = "text/cloud-config"
+    #content_type = "text/cloud-config"
     content = "${data.template_file.cloud-config.rendered}"
   }
 }
 
+output "userdata" {
+  value = "${data.template_cloudinit_config.cloudinit.rendered}"
+}
 
 # Deploy vedge
 resource "aws_instance" "velocloud-edge" {
@@ -161,7 +160,7 @@ resource "aws_instance" "velocloud-edge" {
   security_groups = ["${aws_security_group.allow_velocloud.id}"]
   subnet_id       = "${aws_subnet.private_subnet.id}"
   source_dest_check = false
-  user_data       = "data.template_cloudinit_config.cloudinit.rendered)}"
+  user_data       = "${data.template_cloudinit_config.cloudinit.rendered}"
   lifecycle {
     create_before_destroy = true
   }
@@ -244,9 +243,9 @@ resource "aws_network_interface" "jumpbox_public" {
 resource "aws_eip" "jumpbox_eip" {
   vpc      = true
   network_interface = "${aws_network_interface.jumpbox_public.id}"
-#  provisioner "local-exec" {
-#    command = "scp -i ~/.ssh/craig.pem ~/.ssh/craig.pem ec2-user@${self.public_ip}:/home/ec2-user/.ssh"
-#  }
+  provisioner "local-exec" {
+    command = "scp -i ~/.ssh/craig.pem ~/.ssh/craig.pem ec2-user@${self.public_ip}:/home/ec2-user/.ssh"
+  }
 }
 # Let's have that public IP
 output "jumpbox_eip" {

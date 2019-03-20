@@ -9,7 +9,7 @@ data "aws_availability_zones" "all" {}
 
 # Whip up a VPC
 resource "aws_vpc" "vpc" {
-  cidr_block        = "10.75.0.0/23"
+  cidr_block = "${var.vpc_cidr_block}"
   tags = {
     Name = "Velocloud"
   }
@@ -44,7 +44,7 @@ resource "aws_default_route_table" "r" {
 resource "aws_subnet" "public_subnet" {
   vpc_id     = "${aws_vpc.vpc.id}"
   availability_zone = "us-east-1d"
-  cidr_block = "10.75.0.0/24"
+  cidr_block = "${var.public_cidr}"
   tags = {
     Name = "VCE Public Subnet"
   }
@@ -76,7 +76,7 @@ resource "aws_route_table" "p" {
 resource "aws_subnet" "private_subnet" {
   vpc_id     = "${aws_vpc.vpc.id}"
   availability_zone = "us-east-1d"
-  cidr_block = "10.75.1.0/24"
+  cidr_block = "${var.private_cidr}"
   tags = {
     Name = "VCE Private Subnet"
   }
@@ -132,15 +132,22 @@ resource "aws_security_group" "allow_velocloud" {
 # Whip up the cloud-config file
 # http://169.254.169.254/latest/user-data
 data "template_file" "cloud-config" {
-  template = <<YAML
-      #cloud-config
-      velocloud:
-        vce:
-        vco: "${var.vco_hostname}"
-        activation_code: "${var.velocloud_activation_code}"
-        vco_ignore_cert_errors: false
-YAML
+  template = "${file("scripts/init.cfg")}"
 }
+output "userdata" {
+  value = "${data.template_file.cloud-config.rendered}"
+}
+
+data "template_cloudinit_config" "cloudinit" {
+  gzip = false
+  base64_encode = false
+  part {
+    filename = "init.cfg"
+    content_type = "text/cloud-config"
+    content = "${data.template_file.cloud-config.rendered}"
+  }
+}
+
 
 
 # Deploy vedge
@@ -151,7 +158,7 @@ resource "aws_instance" "velocloud-edge" {
   security_groups = ["${aws_security_group.allow_velocloud.id}"]
   subnet_id       = "${aws_subnet.private_subnet.id}"
   source_dest_check = false
-  user_data       = "${base64encode(data.template_file.cloud-config.rendered)}"
+  user_data       = "data.template_cloudinit_config.cloudinit.rendered)}"
   lifecycle {
     create_before_destroy = true
   }

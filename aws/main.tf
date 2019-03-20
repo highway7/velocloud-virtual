@@ -130,26 +130,19 @@ resource "aws_security_group" "allow_velocloud" {
 }
 
 
-# Whip up the cloud-config file
-# http://169.254.169.254/latest/user-data
 data "template_file" "cloud-config" {
-  template = "${file("scripts/init.cfg")}"
-  vars = {
-    activation_code = "${var.velocloud_activation_code}"
-  }
-}
-data "template_cloudinit_config" "cloudinit" {
-  gzip = false
-  base64_encode = false
-  part {
-    filename = "init.cfg"
-    #content_type = "text/cloud-config"
-    content = "${data.template_file.cloud-config.rendered}"
-  }
+  template = <<YAML
+#cloud-config
+velocloud:
+  vce:
+    vco: "vco160-usca1.velocloud.net"
+    activation_code: "7HEL-R4CE-GUP9-EN5A"
+    vco_ignore_cert_errors: false
+YAML
 }
 
 output "userdata" {
-  value = "${data.template_cloudinit_config.cloudinit.rendered}"
+  value = "${data.template_file.cloud-config.rendered}"
 }
 
 # Deploy vedge
@@ -160,7 +153,8 @@ resource "aws_instance" "velocloud-edge" {
   security_groups = ["${aws_security_group.allow_velocloud.id}"]
   subnet_id       = "${aws_subnet.private_subnet.id}"
   source_dest_check = false
-  user_data       = "${data.template_cloudinit_config.cloudinit.rendered}"
+  #user_data       = "${data.template_cloudinit_config.cloudinit.rendered}"
+  user_data       = "${base64encode(data.template_file.cloud-config.rendered)}"
   lifecycle {
     create_before_destroy = true
   }

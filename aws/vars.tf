@@ -5,7 +5,7 @@ variable "velocloud_port" {
 
 variable "velocloud_activation_code" {
   description = "Activation code from the portal"
-  default = "HLX6-CZ9V-FR5S-B5ZR"
+  default = "ARVJ-FQCX-XVBH-8H8Z"
 }
 
 variable "vco_hostname" {

@@ -1,4 +1,4 @@
-# AWS US East 1
+
 # Credentials from ~/.aws/credentials
 provider "aws" {
   profile = "cbts"
@@ -7,11 +7,12 @@ provider "aws" {
 
 data "aws_availability_zones" "all" {}
 
+
 # Whip up a VPC
 resource "aws_vpc" "vpc" {
   cidr_block = "${var.vpc_cidr_block}"
   tags = {
-    Name = "Velocloud"
+    Name = "Velocloud VPC Playground"
   }
 }
 # Let's have that VPC ID
@@ -27,6 +28,7 @@ resource "aws_internet_gateway" "gw" {
     Name = "Internet gateway"
   }
 }
+
 
 resource "aws_default_route_table" "r" {
   default_route_table_id = "${aws_vpc.vpc.default_route_table_id}"
@@ -56,7 +58,6 @@ resource "aws_route_table_association" "a" {
   subnet_id      = "${aws_subnet.public_subnet.id}"
   route_table_id = "${aws_default_route_table.r.id}"
 }
-
 
 
 # Create private route table
@@ -133,6 +134,9 @@ resource "aws_security_group" "allow_velocloud" {
 # http://169.254.169.254/latest/user-data
 data "template_file" "cloud-config" {
   template = "${file("scripts/init.cfg")}"
+  vars = {
+    activation_code = "${var.velocloud_activation_code}"
+  }
 }
 output "userdata" {
   value = "${data.template_file.cloud-config.rendered}"
@@ -149,7 +153,6 @@ data "template_cloudinit_config" "cloudinit" {
 }
 
 
-
 # Deploy vedge
 resource "aws_instance" "velocloud-edge" {
   ami             = "ami-da7a56cc"
@@ -163,11 +166,8 @@ resource "aws_instance" "velocloud-edge" {
     create_before_destroy = true
   }
   tags = {
-    Name = "Velocloud Edge"
+    Name = "Velocloud Virtual Edge"
   }
-#  provisioner "remote-exec" {
-#    command = "reboot"
-#  }
 }
 
 
@@ -244,9 +244,9 @@ resource "aws_network_interface" "jumpbox_public" {
 resource "aws_eip" "jumpbox_eip" {
   vpc      = true
   network_interface = "${aws_network_interface.jumpbox_public.id}"
-  provisioner "local-exec" {
-    command = "scp -i ~/.ssh/craig.pem ~/.ssh/craig.pem ec2-user@${self.public_ip}:/home/ec2-user/.ssh"
-  }
+#  provisioner "local-exec" {
+#    command = "scp -i ~/.ssh/craig.pem ~/.ssh/craig.pem ec2-user@${self.public_ip}:/home/ec2-user/.ssh"
+#  }
 }
 # Let's have that public IP
 output "jumpbox_eip" {

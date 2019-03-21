@@ -30,7 +30,7 @@ resource "aws_internet_gateway" "gw" {
 }
 
 
-resource "aws_default_route_table" "r" {
+resource "aws_default_route_table" "pub_rt" {
   default_route_table_id = "${aws_vpc.vpc.default_route_table_id}"
   route {
     cidr_block = "0.0.0.0/0"
@@ -54,40 +54,58 @@ resource "aws_subnet" "public_subnet" {
 
 
 # Associate public subnet with its route table
-resource "aws_route_table_association" "a" {
+resource "aws_route_table_association" "pub_sub_ass" {
   subnet_id      = "${aws_subnet.public_subnet.id}"
-  route_table_id = "${aws_default_route_table.r.id}"
+  route_table_id = "${aws_default_route_table.pub_rt.id}"
 }
 
 
-# Create private route table
-resource "aws_route_table" "p" {
+# Create private route table 
+resource "aws_route_table" "priv_rt1" {
   vpc_id = "${aws_vpc.vpc.id}"
-#  route {
-#    cidr_block = "0.0.0.0/0"
-#    gateway_id = "${aws_network_interface.vce_lan.id}"
-#  }
+  # route {
+  #   cidr_block = "0.0.0.0/0"
+  #   gateway_id = "${aws_network_interface.vce_lan.id}"
+  # }
   tags = {
-    Name = "Velocloud Private Routing Table"
+    Name = "Velocloud Private Routing Table 1"
   }
 }
 
 
-# And private subnet
-resource "aws_subnet" "private_subnet" {
+# And private subnet 1
+resource "aws_subnet" "priv1_subnet" {
   vpc_id     = "${aws_vpc.vpc.id}"
   availability_zone = "us-east-1d"
-  cidr_block = "${var.private_cidr}"
+  cidr_block = "${var.priv1_cidr}"
   tags = {
-    Name = "VCE Private Subnet"
+    Name = "VCE Private Subnet 1"
   }
 }
 
 
 # Associate private_subnet subnet with its route table
-resource "aws_route_table_association" "a2" {
-  subnet_id      = "${aws_subnet.private_subnet.id}"
-  route_table_id = "${aws_route_table.p.id}"
+resource "aws_route_table_association" "priv1_sub_ass" {
+  subnet_id      = "${aws_subnet.priv1_subnet.id}"
+  route_table_id = "${aws_route_table.priv_rt1.id}"
+}
+
+
+# And private subnet 2
+resource "aws_subnet" "priv2_subnet" {
+  vpc_id     = "${aws_vpc.vpc.id}"
+  availability_zone = "us-east-1d"
+  cidr_block = "${var.priv2_cidr}"
+  tags = {
+    Name = "VCE Private Subnet 2"
+  }
+}
+
+
+# Associate private_subnet subnet with its route table
+resource "aws_route_table_association" "priv2_sub_ass" {
+  subnet_id      = "${aws_subnet.priv2_subnet.id}"
+  route_table_id = "${aws_route_table.priv_rt1.id}"
 }
 
 
@@ -136,7 +154,7 @@ data "template_file" "cloud-config" {
 velocloud:
   vce:
     vco: "vco160-usca1.velocloud.net"
-    activation_code: "7HEL-R4CE-GUP9-EN5A"
+    activation_code: "D3S5-SVK7-XBKU-V5FE"
     vco_ignore_cert_errors: false
 YAML
 }
@@ -151,9 +169,8 @@ resource "aws_instance" "velocloud-edge" {
   instance_type   = "m4.xlarge"
   key_name        = "Craig"
   security_groups = ["${aws_security_group.allow_velocloud.id}"]
-  subnet_id       = "${aws_subnet.private_subnet.id}"
+  subnet_id       = "${aws_subnet.priv1_subnet.id}"
   source_dest_check = false
-  #user_data       = "${data.template_cloudinit_config.cloudinit.rendered}"
   user_data       = "${base64encode(data.template_file.cloud-config.rendered)}"
   lifecycle {
     create_before_destroy = true
@@ -163,19 +180,9 @@ resource "aws_instance" "velocloud-edge" {
   }
 }
 
-
-# Create an ENI for Velocloud LAN interface
-resource "aws_network_interface" "vce_lan" {
-  subnet_id       = "${aws_subnet.private_subnet.id}"
-  security_groups = ["${aws_security_group.allow_velocloud.id}"]
-  source_dest_check = false
-  attachment {
-    instance     = "${aws_instance.velocloud-edge.id}"
-    device_index = 2
-  }
-  tags {
-    Name = "VCE LAN Interface (GE3 / eth2)"
-  }
+# Let's have that private IP
+output "vce-private-ip" {
+  value = "${aws_instance.velocloud-edge.private_ip}"
 }
 
 
@@ -194,14 +201,28 @@ resource "aws_network_interface" "transport" {
 }
 
 
+#Create an ENI for Velocloud LAN interface
+resource "aws_network_interface" "vce_lan" {
+  subnet_id       = "${aws_subnet.priv1_subnet.id}"
+  security_groups = ["${aws_security_group.allow_velocloud.id}"]
+  source_dest_check = false
+  attachment {
+    instance     = "${aws_instance.velocloud-edge.id}"
+    device_index = 2
+  }
+  tags {
+    Name = "VCE LAN Interface (GE3 / eth2)"
+  }
+}
+
+
 # Create EIP for Velocloud transport interface
 resource "aws_eip" "transport" {
   vpc      = true
   network_interface = "${aws_network_interface.transport.id}"
-}
-# Let's have that public IP
-output "transport-eip" {
-  value = "${aws_eip.transport.public_ip}"
+  tags {
+    Name = "VCE Transport Int GE3"
+  }
 }
 
 
@@ -210,8 +231,14 @@ resource "aws_instance" "jumpbox" {
   ami             = "ami-02da3a138888ced85"
   instance_type   = "t1.micro"
   key_name        = "Craig"
-  security_groups = ["${aws_security_group.allow_velocloud.id}"]
-  subnet_id       = "${aws_subnet.private_subnet.id}"
+  network_interface {
+    device_index = 0
+    network_interface_id = "${aws_network_interface.jump_priv_int.id}"
+  }
+  network_interface {
+    device_index = 1
+    network_interface_id = "${aws_network_interface.jump_pub_int.id}"
+  }
   lifecycle {
     create_before_destroy = true
   }
@@ -221,14 +248,19 @@ resource "aws_instance" "jumpbox" {
 }
 
 
-# Create an ENI for eth1 Jumpbox private interface
-resource "aws_network_interface" "jumpbox_public" {
-  subnet_id       = "${aws_subnet.public_subnet.id}"
+resource "aws_network_interface" "jump_priv_int" {
+  subnet_id = "${aws_subnet.priv1_subnet.id}"
   security_groups = ["${aws_security_group.allow_velocloud.id}"]
-  source_dest_check = false
-  attachment {
-    instance     = "${aws_instance.jumpbox.id}"
-    device_index = 1
+  tags = {
+    Name = "Jumobox private interface"
+  }
+}
+
+resource "aws_network_interface" "jump_pub_int" {
+  subnet_id = "${aws_subnet.public_subnet.id}"
+  security_groups = ["${aws_security_group.allow_velocloud.id}"]
+  tags = {
+    Name = "Jumobox public interface"
   }
 }
 
@@ -236,7 +268,7 @@ resource "aws_network_interface" "jumpbox_public" {
 # Create EIP for reaching Jumpbox
 resource "aws_eip" "jumpbox_eip" {
   vpc      = true
-  network_interface = "${aws_network_interface.jumpbox_public.id}"
+  network_interface = "${aws_network_interface.jump_pub_int.id}"
   provisioner "local-exec" {
     command = "scp -i ~/.ssh/craig.pem ~/.ssh/craig.pem ec2-user@${self.public_ip}:/home/ec2-user/.ssh"
   }

@@ -5,7 +5,7 @@ variable "velocloud_port" {
 
 variable "velocloud_activation_code" {
   description = "Activation code from the portal"
-  default = "ARVJ-FQCX-XVBH-8H8Z"
+  default = "D3S5-SVK7-XBKU-V5FE"
 }
 
 variable "vco_hostname" {
@@ -14,7 +14,7 @@ variable "vco_hostname" {
 }
 
 variable "vpc_cidr_block" {
-  default = "10.50.0.0/23"
+  default = "10.50.0.0/16"
 }
 
 
@@ -22,6 +22,10 @@ variable "public_cidr" {
   default = "10.50.0.0/24"
 }
 
-variable "private_cidr" {
-  default = "10.50.1.0/24"
+variable "priv1_cidr" {
+  default = "10.50.10.0/24"
+}
+
+variable "priv2_cidr" {
+  default = "10.50.11.0/24"
 }

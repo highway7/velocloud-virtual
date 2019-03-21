@@ -154,7 +154,7 @@ data "template_file" "cloud-config" {
 velocloud:
   vce:
     vco: "vco160-usca1.velocloud.net"
-    activation_code: "D3S5-SVK7-XBKU-V5FE"
+    activation_code: "${var.velocloud_activation_code}"
     vco_ignore_cert_errors: false
 YAML
 }
@@ -203,7 +203,7 @@ resource "aws_network_interface" "transport" {
 
 #Create an ENI for Velocloud LAN interface
 resource "aws_network_interface" "vce_lan" {
-  subnet_id       = "${aws_subnet.priv1_subnet.id}"
+  subnet_id       = "${aws_subnet.priv2_subnet.id}"
   security_groups = ["${aws_security_group.allow_velocloud.id}"]
   source_dest_check = false
   attachment {
@@ -243,7 +243,7 @@ resource "aws_instance" "jumpbox" {
     create_before_destroy = true
   }
   tags = {
-    Name = "Velocloud Jumpbox"
+    Name = "VCE Jumpbox"
   }
 }
 
@@ -252,7 +252,7 @@ resource "aws_network_interface" "jump_priv_int" {
   subnet_id = "${aws_subnet.priv1_subnet.id}"
   security_groups = ["${aws_security_group.allow_velocloud.id}"]
   tags = {
-    Name = "Jumobox private interface"
+    Name = "VCE Jumpbox private interface"
   }
 }
 
@@ -260,7 +260,7 @@ resource "aws_network_interface" "jump_pub_int" {
   subnet_id = "${aws_subnet.public_subnet.id}"
   security_groups = ["${aws_security_group.allow_velocloud.id}"]
   tags = {
-    Name = "Jumobox public interface"
+    Name = "VCE Jumpbox public interface"
   }
 }
 

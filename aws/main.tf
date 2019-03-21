@@ -48,7 +48,7 @@ resource "aws_subnet" "public_subnet" {
   availability_zone = "us-east-1d"
   cidr_block = "${var.public_cidr}"
   tags = {
-    Name = "VCE Public Subnet"
+    Name = "Velocloud Public Subnet"
   }
 }
 
@@ -59,19 +59,14 @@ resource "aws_route_table_association" "pub_sub_ass" {
   route_table_id = "${aws_default_route_table.pub_rt.id}"
 }
 
-
-# Create private route table 
+ 
+# Create private route table 1
 resource "aws_route_table" "priv_rt1" {
   vpc_id = "${aws_vpc.vpc.id}"
-  # route {
-  #   cidr_block = "0.0.0.0/0"
-  #   gateway_id = "${aws_network_interface.vce_lan.id}"
-  # }
-  tags = {
-    Name = "Velocloud Private Routing Table 1"
+    tags = {
+    Name = "Velocloud Private RT 1 - Management Facing"
   }
 }
-
 
 # And private subnet 1
 resource "aws_subnet" "priv1_subnet" {
@@ -79,10 +74,9 @@ resource "aws_subnet" "priv1_subnet" {
   availability_zone = "us-east-1d"
   cidr_block = "${var.priv1_cidr}"
   tags = {
-    Name = "VCE Private Subnet 1"
+    Name = "Velocloud Private Subnet 1"
   }
 }
-
 
 # Associate private_subnet subnet with its route table
 resource "aws_route_table_association" "priv1_sub_ass" {
@@ -91,13 +85,26 @@ resource "aws_route_table_association" "priv1_sub_ass" {
 }
 
 
+# Create private route table 2
+resource "aws_route_table" "priv_rt2" {
+  vpc_id = "${aws_vpc.vpc.id}"
+  depends_on = ["aws_network_interface.vce_lan"]
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = "${aws_network_interface.vce_lan.id}"
+  }
+  tags = {
+    Name = "Velocloud Private RT 2 - LAN Facing"
+  }
+}
+
 # And private subnet 2
 resource "aws_subnet" "priv2_subnet" {
   vpc_id     = "${aws_vpc.vpc.id}"
   availability_zone = "us-east-1d"
   cidr_block = "${var.priv2_cidr}"
   tags = {
-    Name = "VCE Private Subnet 2"
+    Name = "Velocloud Private Subnet 2"
   }
 }
 
@@ -105,7 +112,7 @@ resource "aws_subnet" "priv2_subnet" {
 # Associate private_subnet subnet with its route table
 resource "aws_route_table_association" "priv2_sub_ass" {
   subnet_id      = "${aws_subnet.priv2_subnet.id}"
-  route_table_id = "${aws_route_table.priv_rt1.id}"
+  route_table_id = "${aws_route_table.priv_rt2.id}"
 }
 
 
@@ -180,8 +187,7 @@ resource "aws_instance" "velocloud-edge" {
   }
 }
 
-# Let's have that private IP
-output "vce-private-ip" {
+output "vce-eth0-private-ip" {
   value = "${aws_instance.velocloud-edge.private_ip}"
 }
 
@@ -196,7 +202,7 @@ resource "aws_network_interface" "transport" {
     device_index = 1
   }
   tags {
-    Name = "VCE Transport Interface (GE2 / eth1)"
+    Name = "Velocloud Transport Interface (GE2 / eth1)"
   }
 }
 
@@ -211,7 +217,7 @@ resource "aws_network_interface" "vce_lan" {
     device_index = 2
   }
   tags {
-    Name = "VCE LAN Interface (GE3 / eth2)"
+    Name = "Velocloud LAN Interface (GE3 / eth2)"
   }
 }
 
@@ -221,8 +227,13 @@ resource "aws_eip" "transport" {
   vpc      = true
   network_interface = "${aws_network_interface.transport.id}"
   tags {
-    Name = "VCE Transport Int GE3"
+    Name = "Velocloud Transport Int GE3"
   }
+}
+
+# Let's have that public IP
+output "vce_eip" {
+  value = "${aws_eip.transport.public_ip}"
 }
 
 
@@ -243,7 +254,7 @@ resource "aws_instance" "jumpbox" {
     create_before_destroy = true
   }
   tags = {
-    Name = "VCE Jumpbox"
+    Name = "Velocloud Jumpbox"
   }
 }
 
@@ -260,7 +271,7 @@ resource "aws_network_interface" "jump_pub_int" {
   subnet_id = "${aws_subnet.public_subnet.id}"
   security_groups = ["${aws_security_group.allow_velocloud.id}"]
   tags = {
-    Name = "VCE Jumpbox public interface"
+    Name = "Velocloud Jumpbox public interface"
   }
 }
 
@@ -276,4 +287,17 @@ resource "aws_eip" "jumpbox_eip" {
 # Let's have that public IP
 output "jumpbox_eip" {
   value = "${aws_eip.jumpbox_eip.public_ip}"
+}
+
+resource "aws_instance" "Linux-01" {
+  ami             = "ami-02da3a138888ced85"
+  instance_type   = "t1.micro"
+  key_name        = "Craig"
+  subnet_id       = "${aws_subnet.priv2_subnet.id}"
+  lifecycle {
+    create_before_destroy = true
+  }
+  tags = {
+    Name = "Linux Test Workload"
+  }
 }

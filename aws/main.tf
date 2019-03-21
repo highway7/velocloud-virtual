@@ -5,6 +5,8 @@ provider "aws" {
   region = "us-east-1"
 }
 
+# Viptela 18.3.0 AMI ami-1c333e63
+
 data "aws_availability_zones" "all" {}
 
 
@@ -91,7 +93,7 @@ resource "aws_route_table" "priv_rt2" {
   depends_on = ["aws_network_interface.vce_lan"]
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = "${aws_network_interface.vce_lan.id}"
+    network_interface_id = "${aws_network_interface.vce_lan.id}"
   }
   tags = {
     Name = "Velocloud Private RT 2 - LAN Facing"
@@ -175,7 +177,7 @@ resource "aws_instance" "velocloud-edge" {
   ami             = "ami-da7a56cc"
   instance_type   = "m4.xlarge"
   key_name        = "Craig"
-  security_groups = ["${aws_security_group.allow_velocloud.id}"]
+  vpc_security_group_ids = ["${aws_security_group.allow_velocloud.id}"]
   subnet_id       = "${aws_subnet.priv1_subnet.id}"
   source_dest_check = false
   user_data       = "${base64encode(data.template_file.cloud-config.rendered)}"
@@ -293,11 +295,12 @@ resource "aws_instance" "Linux-01" {
   ami             = "ami-02da3a138888ced85"
   instance_type   = "t1.micro"
   key_name        = "Craig"
+  vpc_security_group_ids = ["${aws_security_group.allow_velocloud.id}"]
   subnet_id       = "${aws_subnet.priv2_subnet.id}"
   lifecycle {
     create_before_destroy = true
   }
   tags = {
-    Name = "Linux Test Workload"
+    Name = "Velocloud Linux Test Workload"
   }
 }

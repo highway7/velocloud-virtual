@@ -160,6 +160,10 @@ resource "aws_security_group" "allow_velocloud" {
 data "template_file" "cloud-config" {
   template = <<YAML
 #cloud-config
+runcmd:
+  - ip route replace default via 10.50.0.1 dev eth1 metric 1
+  - ip route del default dev eth0
+  - ip route del default dev eth2
 velocloud:
   vce:
     vco: "vco160-usca1.velocloud.net"
@@ -238,59 +242,6 @@ output "vce_eip" {
   value = "${aws_eip.transport.public_ip}"
 }
 
-
-# Deploy jumpbox
-resource "aws_instance" "jumpbox" {
-  ami             = "ami-02da3a138888ced85"
-  instance_type   = "t1.micro"
-  key_name        = "Craig"
-  network_interface {
-    device_index = 0
-    network_interface_id = "${aws_network_interface.jump_priv_int.id}"
-  }
-  network_interface {
-    device_index = 1
-    network_interface_id = "${aws_network_interface.jump_pub_int.id}"
-  }
-  lifecycle {
-    create_before_destroy = true
-  }
-  tags = {
-    Name = "Velocloud Jumpbox"
-  }
-}
-
-
-resource "aws_network_interface" "jump_priv_int" {
-  subnet_id = "${aws_subnet.priv1_subnet.id}"
-  security_groups = ["${aws_security_group.allow_velocloud.id}"]
-  tags = {
-    Name = "VCE Jumpbox private interface"
-  }
-}
-
-resource "aws_network_interface" "jump_pub_int" {
-  subnet_id = "${aws_subnet.public_subnet.id}"
-  security_groups = ["${aws_security_group.allow_velocloud.id}"]
-  tags = {
-    Name = "Velocloud Jumpbox public interface"
-  }
-}
-
-
-# Create EIP for reaching Jumpbox
-resource "aws_eip" "jumpbox_eip" {
-  vpc      = true
-  network_interface = "${aws_network_interface.jump_pub_int.id}"
-  provisioner "local-exec" {
-    command = "scp -i ~/.ssh/craig.pem ~/.ssh/craig.pem ec2-user@${self.public_ip}:/home/ec2-user/.ssh"
-  }
-}
-# Let's have that public IP
-output "jumpbox_eip" {
-  value = "${aws_eip.jumpbox_eip.public_ip}"
-}
-
 resource "aws_instance" "Linux-01" {
   ami             = "ami-02da3a138888ced85"
   instance_type   = "t1.micro"
@@ -303,4 +254,8 @@ resource "aws_instance" "Linux-01" {
   tags = {
     Name = "Velocloud Linux Test Workload"
   }
+}
+
+output "test-box-ip" {
+  value = "${aws_instance.Linux-01.private_ip}"
 }

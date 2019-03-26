@@ -165,6 +165,10 @@ resource "aws_security_group" "allow_velocloud" {
 data "template_file" "cloud-config" {
   template = <<YAML
 #cloud-config
+runcmd:
+  - ip route replace default via 10.50.0.1 dev eth1 metric 1
+  - ip route del default dev eth0
+  - ip route del default dev eth2
 velocloud:
   vce:
     vco: "vco160-usca1.velocloud.net"
@@ -247,6 +251,7 @@ output "vce_eip" {
   value = "${aws_eip.transport.public_ip}"
 }
 
+<<<<<<< HEAD
 # Deploy jumpbox
 resource "aws_instance" "jumpbox" {
   ami           = "ami-02da3a138888ced85"
@@ -305,6 +310,8 @@ output "jumpbox_eip" {
   value = "${aws_eip.jumpbox_eip.public_ip}"
 }
 
+=======
+>>>>>>> 25c270ec1145e321b6ca648019e2fac432cae9f4
 resource "aws_instance" "Linux-01" {
   ami                    = "ami-02da3a138888ced85"
   instance_type          = "t1.micro"
@@ -320,3 +327,10 @@ resource "aws_instance" "Linux-01" {
     Name = "Velocloud Linux Test Workload"
   }
 }
+<<<<<<< HEAD
+=======
+
+output "test-box-ip" {
+  value = "${aws_instance.Linux-01.private_ip}"
+}
+>>>>>>> 25c270ec1145e321b6ca648019e2fac432cae9f4

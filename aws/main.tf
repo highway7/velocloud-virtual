@@ -251,7 +251,6 @@ output "vce_eip" {
   value = "${aws_eip.transport.public_ip}"
 }
 
-<<<<<<< HEAD
 # Deploy jumpbox
 resource "aws_instance" "jumpbox" {
   ami           = "ami-02da3a138888ced85"
@@ -310,8 +309,7 @@ output "jumpbox_eip" {
   value = "${aws_eip.jumpbox_eip.public_ip}"
 }
 
-=======
->>>>>>> 25c270ec1145e321b6ca648019e2fac432cae9f4
+
 resource "aws_instance" "Linux-01" {
   ami                    = "ami-02da3a138888ced85"
   instance_type          = "t1.micro"
@@ -327,10 +325,7 @@ resource "aws_instance" "Linux-01" {
     Name = "Velocloud Linux Test Workload"
   }
 }
-<<<<<<< HEAD
-=======
 
 output "test-box-ip" {
   value = "${aws_instance.Linux-01.private_ip}"
 }
->>>>>>> 25c270ec1145e321b6ca648019e2fac432cae9f4
